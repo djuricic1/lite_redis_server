@@ -1,6 +1,11 @@
 package resp_core
 
-import "testing"
+import (
+	"bufio"
+	"reflect"
+	"strings"
+	"testing"
+)
 
 func TestSerialize(t *testing.T) {
 	tests := []struct {
@@ -29,5 +34,45 @@ func TestSerialize(t *testing.T) {
 				}
 			},
 		)
+	}
+}
+
+func TestDeserialize(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected RESPMessage
+	}{
+		{"Simple String", "+hello world\r\n", RESPMessage{Type: SimpleString, Payload: "hello world"}},
+		{"Error", "-Error message\r\n", RESPMessage{Type: Error, Payload: "Error message"}},
+		{"Positive Integer", ":42\r\n", RESPMessage{Type: Integer, Payload: 42}},
+		{"Negative Integer", ":-123\r\n", RESPMessage{Type: Integer, Payload: -123}},
+		{"Bulk String", "$11\r\nhello world\r\n", RESPMessage{Type: BulkString, Payload: "hello world"}},
+		{"Null Bulk String", "$-1\r\n", RESPMessage{Type: BulkString, Payload: nil}},
+		{"Empty Bulk String", "$0\r\n\r\n", RESPMessage{Type: BulkString, Payload: ""}},
+		{"Array with Simple Strings", "*3\r\n+one\r\n+two\r\n+three\r\n", RESPMessage{Type: Array, Payload: []RESPMessage{
+			{Type: SimpleString, Payload: "one"},
+			{Type: SimpleString, Payload: "two"},
+			{Type: SimpleString, Payload: "three"},
+		}}},
+		{"Array with Null Bulk Strings", "*2\r\n$-1\r\n$-1\r\n", RESPMessage{Type: Array, Payload: []RESPMessage{
+			{Type: BulkString, Payload: nil},
+			{Type: BulkString, Payload: nil},
+		}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := bufio.NewReader(strings.NewReader(tt.input))
+			deserialized, err := Deserialize(reader)
+			if err != nil {
+				t.Errorf("Test Case: %s\nError: %v", tt.name, err)
+				return
+			}
+
+			if !reflect.DeepEqual(deserialized, tt.expected) {
+				t.Errorf("Test Case: %s\nActual  : %+v\nExpected: %+v", tt.name, deserialized, tt.expected)
+			}
+		})
 	}
 }
