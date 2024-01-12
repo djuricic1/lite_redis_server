@@ -1,4 +1,4 @@
-package resp_core
+package main
 
 import (
 	"bufio"
@@ -23,7 +23,26 @@ type RESPMessage struct {
 	Payload interface{}
 }
 
+// String returns the string representation of the RESPMessage.
+func (msg RESPMessage) String() string {
+	return formatMessage(msg, 0)
+}
+
+// formatMessage is a helper function to format the RESPMessage recursively.
+func formatMessage(msg RESPMessage, indentLevel int) string {
+	// If Payload is also a RESPMessage, format it recursively
+	var payloadStr string
+	if nestedMsg, ok := msg.Payload.(RESPMessage); ok {
+		payloadStr = formatMessage(nestedMsg, indentLevel+1)
+	} else {
+		payloadStr = fmt.Sprintf("%v", msg.Payload)
+	}
+
+	return fmt.Sprintf("RESPMessage{Type: %v, Payload: %s}", msg.Type, payloadStr)
+}
+
 func Serialize(message RESPMessage) []byte {
+	// the first character is always one of special characters in RESP protocol.
 	var buffer bytes.Buffer
 	buffer.WriteByte(byte(message.Type))
 
